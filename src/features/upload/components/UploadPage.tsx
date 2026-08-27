@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ChangeEvent, DragEvent } from 'react';
 import { useAuth } from '../../auth/context/use-auth';
-import { uploadFile } from '../api/upload-api';
+import { createVideoJob, isAllowedVideoType, uploadVideoToStorage } from '../api/upload-api';
 import { ApiError } from '../../../lib/http';
 import './upload-page.css';
 
@@ -11,22 +11,32 @@ export function UploadPage() {
   const [dragActive, setDragActive] = useState(false);
   const [status, setStatus] = useState<'idle' | 'uploading' | 'done' | 'error'>('idle');
   const [message, setMessage] = useState<string | null>(null);
+  const [jobId, setJobId] = useState<number | null>(null);
+  const [copied, setCopied] = useState(false);
 
-  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    setFile(event.target.files?.[0] ?? null);
+  function selectFile(candidate: File | null) {
+    if (candidate && !isAllowedVideoType(candidate)) {
+      setFile(null);
+      setStatus('error');
+      setMessage('Formato não suportado. Envie um vídeo .mp4 ou .mov.');
+      return;
+    }
+
+    setFile(candidate);
     setStatus('idle');
     setMessage(null);
+    setJobId(null);
+    setCopied(false);
+  }
+
+  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    selectFile(event.target.files?.[0] ?? null);
   }
 
   function handleDrop(event: DragEvent<HTMLLabelElement>) {
     event.preventDefault();
     setDragActive(false);
-    const dropped = event.dataTransfer.files?.[0];
-    if (dropped) {
-      setFile(dropped);
-      setStatus('idle');
-      setMessage(null);
-    }
+    selectFile(event.dataTransfer.files?.[0] ?? null);
   }
 
   async function handleUpload() {
@@ -34,23 +44,38 @@ export function UploadPage() {
 
     setStatus('uploading');
     setMessage(null);
+    setJobId(null);
+    setCopied(false);
 
     try {
-      await uploadFile(file, session.accessToken);
+      const { jobId: createdJobId, uploadUrl } = await createVideoJob(file, session.accessToken);
+      await uploadVideoToStorage(uploadUrl, file);
       setStatus('done');
-      setMessage(`"${file.name}" enviado com sucesso.`);
+      setJobId(createdJobId);
+      setMessage(`"${file.name}" enviado com sucesso. O processamento começará em breve.`);
       setFile(null);
     } catch (err) {
       setStatus('error');
-      setMessage(err instanceof ApiError ? err.message : 'Falha ao enviar o arquivo.');
+      setMessage(err instanceof ApiError ? err.message : 'Falha ao enviar o vídeo.');
+    }
+  }
+
+  async function handleCopyJobId() {
+    if (jobId === null) return;
+
+    try {
+      await navigator.clipboard.writeText(String(jobId));
+      setCopied(true);
+    } catch {
+      setCopied(false);
     }
   }
 
   return (
     <div className="page">
       <div className="card card--wide">
-        <h1>Enviar arquivo</h1>
-        <p className="subtitle">Selecione ou arraste um arquivo para enviar</p>
+        <h1>Enviar vídeo</h1>
+        <p className="subtitle">Selecione ou arraste um vídeo (.mp4 ou .mov) para enviar</p>
 
         <label
           className={`dropzone ${dragActive ? 'dropzone--active' : ''}`}
@@ -61,11 +86,22 @@ export function UploadPage() {
           onDragLeave={() => setDragActive(false)}
           onDrop={handleDrop}
         >
-          <input type="file" onChange={handleFileChange} hidden />
-          {file ? <span>{file.name}</span> : <span>Clique ou arraste um arquivo aqui</span>}
+          <input type="file" accept="video/mp4,video/quicktime" onChange={handleFileChange} hidden />
+          {file ? <span>{file.name}</span> : <span>Clique ou arraste um vídeo aqui</span>}
         </label>
 
         {message && <p className={status === 'error' ? 'error' : 'success'}>{message}</p>}
+
+        {jobId !== null && (
+          <div className="job-id-box">
+            <span>
+              ID do job: <strong>{jobId}</strong>
+            </span>
+            <button type="button" className="btn-secondary" onClick={handleCopyJobId}>
+              {copied ? 'Copiado!' : 'Copiar ID'}
+            </button>
+          </div>
+        )}
 
         <button
           type="button"

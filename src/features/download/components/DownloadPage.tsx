@@ -37,7 +37,9 @@ export function DownloadPage() {
     <div className="page">
       <div className="card card--wide">
         <h1>Baixar arquivo</h1>
-        <p className="subtitle">Informe o identificador do arquivo para baixá-lo</p>
+        <p className="subtitle">
+          Informe o ID do job exibido na tela de envio após o upload do vídeo
+        </p>
 
         <form onSubmit={handleSubmit} className="download-form">
           <input
