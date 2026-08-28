@@ -16,11 +16,8 @@ export function AppLayout() {
       <header className="app-header">
         <span className="logo-mark logo-mark--sm">4F</span>
         <nav className="app-nav">
-          <NavLink to="/files" end className={({ isActive }) => (isActive ? 'active' : '')}>
-            Enviar arquivo
-          </NavLink>
-          <NavLink to="/files/download" className={({ isActive }) => (isActive ? 'active' : '')}>
-            Baixar arquivo
+          <NavLink to="/convert" end className={({ isActive }) => (isActive ? 'active' : '')}>
+            Converter
           </NavLink>
         </nav>
         <div className="app-user">

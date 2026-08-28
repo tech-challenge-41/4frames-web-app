@@ -1,18 +1,19 @@
 import { useState } from 'react';
 import type { ChangeEvent, DragEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/context/use-auth';
-import { createVideoJob, isAllowedVideoType, uploadVideoToStorage } from '../api/upload-api';
+import { createVideoJob, isAllowedVideoType, uploadVideoToStorage } from '../api/convert-api';
 import { ApiError } from '../../../lib/http';
-import './upload-page.css';
+import './convert-page.css';
 
-export function UploadPage() {
+export function ConvertPage() {
   const { session } = useAuth();
+  const navigate = useNavigate();
+
   const [file, setFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
-  const [status, setStatus] = useState<'idle' | 'uploading' | 'done' | 'error'>('idle');
+  const [status, setStatus] = useState<'idle' | 'converting' | 'error'>('idle');
   const [message, setMessage] = useState<string | null>(null);
-  const [jobId, setJobId] = useState<number | null>(null);
-  const [copied, setCopied] = useState(false);
 
   function selectFile(candidate: File | null) {
     if (candidate && !isAllowedVideoType(candidate)) {
@@ -25,8 +26,6 @@ export function UploadPage() {
     setFile(candidate);
     setStatus('idle');
     setMessage(null);
-    setJobId(null);
-    setCopied(false);
   }
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -39,43 +38,27 @@ export function UploadPage() {
     selectFile(event.dataTransfer.files?.[0] ?? null);
   }
 
-  async function handleUpload() {
+  async function handleConvert() {
     if (!file || !session) return;
 
-    setStatus('uploading');
+    setStatus('converting');
     setMessage(null);
-    setJobId(null);
-    setCopied(false);
 
     try {
-      const { jobId: createdJobId, uploadUrl } = await createVideoJob(file, session.accessToken);
+      const { jobId, uploadUrl } = await createVideoJob(file, session.accessToken);
       await uploadVideoToStorage(uploadUrl, file);
-      setStatus('done');
-      setJobId(createdJobId);
-      setMessage(`"${file.name}" enviado com sucesso. O processamento começará em breve.`);
-      setFile(null);
+      navigate(`/jobs/${jobId}`);
     } catch (err) {
       setStatus('error');
       setMessage(err instanceof ApiError ? err.message : 'Falha ao enviar o vídeo.');
     }
   }
 
-  async function handleCopyJobId() {
-    if (jobId === null) return;
-
-    try {
-      await navigator.clipboard.writeText(String(jobId));
-      setCopied(true);
-    } catch {
-      setCopied(false);
-    }
-  }
-
   return (
     <div className="page">
       <div className="card card--wide">
-        <h1>Enviar vídeo</h1>
-        <p className="subtitle">Selecione ou arraste um vídeo (.mp4 ou .mov) para enviar</p>
+        <h1>Converter vídeo em frames</h1>
+        <p className="subtitle">Selecione ou arraste um vídeo (.mp4 ou .mov) para converter em um .zip de imagens</p>
 
         <label
           className={`dropzone ${dragActive ? 'dropzone--active' : ''}`}
@@ -90,26 +73,15 @@ export function UploadPage() {
           {file ? <span>{file.name}</span> : <span>Clique ou arraste um vídeo aqui</span>}
         </label>
 
-        {message && <p className={status === 'error' ? 'error' : 'success'}>{message}</p>}
-
-        {jobId !== null && (
-          <div className="job-id-box">
-            <span>
-              ID do job: <strong>{jobId}</strong>
-            </span>
-            <button type="button" className="btn-secondary" onClick={handleCopyJobId}>
-              {copied ? 'Copiado!' : 'Copiar ID'}
-            </button>
-          </div>
-        )}
+        {message && <p className="error">{message}</p>}
 
         <button
           type="button"
           className="btn-primary"
-          disabled={!file || status === 'uploading'}
-          onClick={handleUpload}
+          disabled={!file || status === 'converting'}
+          onClick={handleConvert}
         >
-          {status === 'uploading' ? 'Enviando…' : 'Enviar'}
+          {status === 'converting' ? 'Enviando…' : 'Converter'}
         </button>
       </div>
     </div>

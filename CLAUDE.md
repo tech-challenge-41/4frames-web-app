@@ -98,9 +98,35 @@ pnpm build     # type-check + production build
 
 Run `pnpm exec tsc -b`, `pnpm lint`, and `pnpm test` before considering any change done.
 
+## Product flow
+
+This is a video-to-frames conversion app. The user flow is:
+
+1. `/login` — authenticate.
+2. `/convert` (`features/convert`) — pick/drop a video, click **Converter**. This
+   calls `POST /videos` (creates the job, returns a presigned S3 upload URL), then
+   `PUT`s the file straight to that URL. On success it navigates to `/jobs/:jobId` —
+   no manual ID entry by the user.
+3. `/jobs/:jobId` (`features/job-status`) — a shareable, standalone status page.
+   Polls `GET /videos/:jobId` every 3s for status
+   (`UPLOAD_PENDING`/`QUEUED`/`PROCESSING`/`DONE`/`FAILED`/`EXPIRED`), stops polling
+   once terminal, and reveals a download button that calls
+   `GET /videos/:jobId/download` when `DONE`. The URL is meant to be copy/pasted
+   and shared — the `jobId` in the path is the correlation point, not something the
+   user types in manually anywhere.
+
+There is no "download" feature folder — download lives inside `job-status` because
+it's gated by that job's status, not a standalone destination.
+
 ## Known gaps
 
-- `4frames-core-api` currently only implements `POST /auth`. The `upload` and
-  `download` features call `/files` endpoints (`POST /files`, `GET /files/:id`)
-  that don't exist yet on the API — the frontend clients follow REST conventions
-  but must be reconciled with the real endpoints once implemented.
+- `4frames-core-api` currently only implements `POST /auth` and `POST /videos`
+  (creates a job + returns a presigned upload URL). `GET /videos/:jobId` (status)
+  and `GET /videos/:jobId/download` — both consumed by `features/job-status` —
+  don't exist yet on the API. The frontend clients assume the contract documented
+  in `job-status-api.ts` and must be reconciled once those endpoints ship.
+- The `jobId` used in the `/jobs/:jobId` URL is today the raw sequential database
+  ID (`SERIAL`). It works but is enumerable/guessable, which is a bad property for
+  a URL meant to be shared publicly. If/when the backend exposes a non-sequential
+  identifier (UUID or short hash) for jobs, switch the route param and API calls to
+  use that instead.

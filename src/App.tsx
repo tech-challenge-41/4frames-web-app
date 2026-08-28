@@ -1,8 +1,8 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './features/auth/context/auth-context';
 import { LoginPage } from './features/auth/components/LoginPage';
-import { UploadPage } from './features/upload/components/UploadPage';
-import { DownloadPage } from './features/download/components/DownloadPage';
+import { ConvertPage } from './features/convert/components/ConvertPage';
+import { JobStatusPage } from './features/job-status/components/JobStatusPage';
 import { AppLayout } from './routes/AppLayout';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 
@@ -14,12 +14,12 @@ function App() {
 
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
-            <Route path="/files" element={<UploadPage />} />
-            <Route path="/files/download" element={<DownloadPage />} />
+            <Route path="/convert" element={<ConvertPage />} />
+            <Route path="/jobs/:jobId" element={<JobStatusPage />} />
           </Route>
         </Route>
 
-        <Route path="*" element={<Navigate to="/files" replace />} />
+        <Route path="*" element={<Navigate to="/convert" replace />} />
       </Routes>
     </AuthProvider>
   );

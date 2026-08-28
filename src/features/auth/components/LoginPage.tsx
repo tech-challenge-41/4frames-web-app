@@ -23,7 +23,7 @@ export function LoginPage() {
     try {
       const result = await login(email, password);
       setSession(result);
-      navigate('/files', { replace: true });
+      navigate('/convert', { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Não foi possível conectar ao servidor.');
     } finally {
