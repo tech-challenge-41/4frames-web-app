@@ -103,10 +103,16 @@ Run `pnpm exec tsc -b`, `pnpm lint`, and `pnpm test` before considering any chan
 This is a video-to-frames conversion app. The user flow is:
 
 1. `/login` — authenticate.
-2. `/convert` (`features/convert`) — pick/drop a video, click **Converter**. This
-   calls `POST /videos` (creates the job, returns a presigned S3 upload URL), then
-   `PUT`s the file straight to that URL. On success it navigates to `/jobs/:jobId` —
-   no manual ID entry by the user.
+2. `/convert` (`features/convert`) — pick/drop a video, click **Converter**. This:
+   1. calls `POST /videos` (creates the job as `UPLOAD_PENDING`, returns a
+      presigned S3 upload URL);
+   2. `PUT`s the file straight to that URL (bytes bypass the API);
+   3. calls `POST /videos/:jobId/complete` (confirms the object landed in S3,
+      advances the job to `QUEUED`);
+   4. navigates to `/jobs/:jobId` — no manual ID entry by the user.
+   All three API calls must happen in order before navigating — skipping step 3
+   is a real bug that was shipped once already (the job silently stays stuck in
+   `UPLOAD_PENDING` forever, since nothing else advances its status).
 3. `/jobs/:jobId` (`features/job-status`) — a shareable, standalone status page.
    Polls `GET /videos/:jobId` every 3s for status
    (`UPLOAD_PENDING`/`QUEUED`/`PROCESSING`/`DONE`/`FAILED`/`EXPIRED`), stops polling
@@ -118,13 +124,25 @@ This is a video-to-frames conversion app. The user flow is:
 There is no "download" feature folder — download lives inside `job-status` because
 it's gated by that job's status, not a standalone destination.
 
+**Live progress (planned, not yet implemented)**: ADR-001 specifies
+`GET /videos/{jobId}/events` as an SSE stream (fed by Redis Pub/Sub from the
+worker) for live progress updates, not WebSocket — the flow is server→client only,
+and SSE composes with the stateless multi-replica API without sticky sessions.
+`JobStatusPage` currently only polls `GET /videos/:jobId` every 3s, which is
+correct as-is (and remains the fallback) but doesn't show incremental progress
+within `PROCESSING`. Don't add an `EventSource` client until the backend actually
+ships that endpoint (it requires the worker + SQS + Redis pieces, none of which
+exist yet) — wiring it earlier would be dead code with nothing to connect to.
+
 ## Known gaps
 
-- `4frames-core-api` currently only implements `POST /auth` and `POST /videos`
-  (creates a job + returns a presigned upload URL). `GET /videos/:jobId` (status)
-  and `GET /videos/:jobId/download` — both consumed by `features/job-status` —
-  don't exist yet on the API. The frontend clients assume the contract documented
-  in `job-status-api.ts` and must be reconciled once those endpoints ship.
+- `4frames-core-api` implements `POST /auth`, `POST /videos`, `POST /videos/:jobId/complete`,
+  and `GET /videos/:jobId` (status). A confirmed job can currently reach `QUEUED`
+  and stay there — there is no worker, SQS, or ffmpeg processing yet, so no job
+  will ever reach `PROCESSING`/`DONE`/`FAILED` today. `GET /videos/:jobId/download`
+  — consumed by `features/job-status` when status is `DONE` — doesn't exist yet on
+  the API either. The frontend client assumes the contract documented in
+  `job-status-api.ts` and must be reconciled once that endpoint ships.
 - The `jobId` used in the `/jobs/:jobId` URL is today the raw sequential database
   ID (`SERIAL`). It works but is enumerable/guessable, which is a bad property for
   a URL meant to be shared publicly. If/when the backend exposes a non-sequential

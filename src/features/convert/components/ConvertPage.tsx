@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { ChangeEvent, DragEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/context/use-auth';
-import { createVideoJob, isAllowedVideoType, uploadVideoToStorage } from '../api/convert-api';
+import { completeVideoJob, createVideoJob, isAllowedVideoType, uploadVideoToStorage } from '../api/convert-api';
 import { ApiError } from '../../../lib/http';
 import './convert-page.css';
 
@@ -47,6 +47,7 @@ export function ConvertPage() {
     try {
       const { jobId, uploadUrl } = await createVideoJob(file, session.accessToken);
       await uploadVideoToStorage(uploadUrl, file);
+      await completeVideoJob(jobId, session.accessToken);
       navigate(`/jobs/${jobId}`);
     } catch (err) {
       setStatus('error');

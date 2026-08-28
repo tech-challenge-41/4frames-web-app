@@ -1,75 +1,43 @@
-# React + TypeScript + Vite
+# 4frames-web-app
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Frontend (React + TypeScript + Vite) do 4Frames — conversão de vídeo em frames (`.zip`).
+Consome a API em [4frames-core-api](../4frames-core-api).
 
-Currently, two official plugins are available:
+Para a arquitetura de código (estrutura de features, convenções, fluxo do produto),
+ver [CLAUDE.md](./CLAUDE.md).
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Desenvolvimento
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```bash
+cp .env.example .env   # aponta VITE_API_URL para a API (padrão http://localhost:3000)
+pnpm install
+pnpm dev
 ```
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+A API (4frames-core-api) precisa estar rodando (com Postgres e LocalStack) para o
+login e a conversão funcionarem — ver o README daquele projeto.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Fluxo
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+1. `/login` — autenticação por email/senha.
+2. `/convert` — selecionar/arrastar um vídeo (`.mp4` ou `.mov`) e clicar em **Converter**.
+   Isso cria o job na API, envia o arquivo direto ao S3 e confirma o upload.
+3. `/jobs/:jobId` — página de status do job, criada automaticamente após o envio.
+   O link é compartilhável. Mostra o status em tempo quase real (poll a cada 3s) e
+   libera o download do `.zip` quando o job estiver `DONE`.
 
+## Comandos
+
+```bash
+pnpm dev              # servidor de desenvolvimento
+pnpm test             # roda os testes (Vitest)
+pnpm lint             # eslint
+pnpm exec tsc -b      # type-check
+pnpm build            # type-check + build de produção
 ```
+
+## Limitações atuais
+
+A API ainda não implementa o processamento de vídeo (worker), a listagem de jobs do
+usuário nem o endpoint de download do `.zip` — ver "Known gaps" em
+[CLAUDE.md](./CLAUDE.md) para o estado exato do contrato assumido pelo front.

@@ -41,3 +41,7 @@ export async function uploadVideoToStorage(uploadUrl: string, file: File): Promi
     throw new Error('Falha ao enviar o arquivo para o armazenamento.');
   }
 }
+
+export async function completeVideoJob(jobId: number, token: string): Promise<void> {
+  await apiFetch(`/videos/${jobId}/complete`, { method: 'POST' }, token);
+}
