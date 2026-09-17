@@ -92,11 +92,16 @@ See `features/auth/context/` for the reference implementation.
 pnpm dev       # start dev server
 pnpm test      # run vitest once
 pnpm lint      # eslint
+pnpm format    # prettier for the whole repo (format:check to verify)
 pnpm exec tsc -b   # type-check
 pnpm build     # type-check + production build
 ```
 
-Run `pnpm exec tsc -b`, `pnpm lint`, and `pnpm test` before considering any change done.
+Run `pnpm exec tsc -b`, `pnpm lint`, `pnpm format:check`, and `pnpm test` before considering any change done.
+
+Formatting follows `.prettierrc.json` (single quotes, semicolons, no trailing commas, 120 columns).
+A Husky `pre-commit` hook runs lint-staged on staged files: `prettier --write` then `eslint --fix`
+for `*.ts`/`*.tsx`/`*.js`, and `prettier --write` for css/html/md/json/yml (config in `package.json`).
 
 ## Product flow
 
@@ -110,9 +115,9 @@ This is a video-to-frames conversion app. The user flow is:
    3. calls `POST /videos/:jobId/complete` (confirms the object landed in S3,
       advances the job to `QUEUED`);
    4. navigates to `/jobs/:jobId` — no manual ID entry by the user.
-   All three API calls must happen in order before navigating — skipping step 3
-   is a real bug that was shipped once already (the job silently stays stuck in
-   `UPLOAD_PENDING` forever, since nothing else advances its status).
+      All three API calls must happen in order before navigating — skipping step 3
+      is a real bug that was shipped once already (the job silently stays stuck in
+      `UPLOAD_PENDING` forever, since nothing else advances its status).
 3. `/jobs/:jobId` (`features/job-status`) — a shareable, standalone status page.
    Polls `GET /videos/:jobId` every 3s for status
    (`UPLOAD_PENDING`/`QUEUED`/`PROCESSING`/`DONE`/`FAILED`/`EXPIRED`), stops polling
