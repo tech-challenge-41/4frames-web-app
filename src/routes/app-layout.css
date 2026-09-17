@@ -1,0 +1,66 @@
+.app-shell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 14px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.logo-mark--sm {
+  width: 36px;
+  height: 36px;
+  font-size: 13px;
+  margin-bottom: 0;
+  flex-shrink: 0;
+}
+
+.app-nav {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+}
+
+.app-nav a {
+  padding: 8px 14px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.app-nav a:hover {
+  background: var(--color-gray-100);
+}
+
+.app-nav a.active {
+  background: var(--color-green-light);
+  color: var(--color-green-dark);
+}
+
+.app-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.app-user .btn-secondary {
+  width: auto;
+  padding: 8px 14px;
+}
+
+.app-content {
+  flex: 1;
+  display: flex;
+  padding: 24px;
+}
