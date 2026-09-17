@@ -20,18 +20,6 @@ Regras completas em CONTRIBUTING.md.
 
 <!-- Obrigatório para mudanças visuais. Apague a seção se não houver. -->
 
-## Checklist do autor
-
-- [ ] A base do PR é `develop`
-- [ ] Título e commits seguem Conventional Commits
-- [ ] `pnpm lint`, `pnpm format:check`, `pnpm exec tsc -b`, `pnpm test` e `pnpm build` passam localmente
-- [ ] CI verde, quando o workflow existir
-- [ ] Testes novos ou atualizados cobrem a mudança
-- [ ] Contrato com a API conferido, se mudou o que o front espera
-- [ ] `README.md`, `CLAUDE.md` e `.env.example` atualizados, se aplicável
-- [ ] Nenhum `.env`, token ou senha real no diff
-- [ ] Li o diff inteiro e fiz os commits à mão, inclusive onde a IA escreveu código
-
 ## Checklist de revisão
 
 - [ ] Revisado e aprovado por outra pessoa
