@@ -39,16 +39,16 @@ git ls-files --eol | grep -c "w/crlf"
 
 ## Branches
 
-| Branch | Papel |
-|---|---|
-| `main` | Só versões fechadas. Recebe `develop` por PR a cada release e ganha uma tag `release-X.Y.Z`. |
-| `develop` | Integração e branch padrão do repositório. Tudo entra aqui por PR. |
-| `<tipo>/<descrição>` | Trabalho do dia a dia, criada a partir de `develop` atualizada. |
+| Branch               | Papel                                                                                        |
+| -------------------- | -------------------------------------------------------------------------------------------- |
+| `main`               | Só versões fechadas. Recebe `develop` por PR a cada release e ganha uma tag `release-X.Y.Z`. |
+| `develop`            | Integração e branch padrão do repositório. Tudo entra aqui por PR.                           |
+| `<tipo>/<descrição>` | Trabalho do dia a dia, criada a partir de `develop` atualizada.                              |
 
-O nome da branch usa o mesmo tipo do commit, uma descrição curta em kebab-case e o número do card quando houver:
+O nome da branch usa o mesmo tipo do commit e uma descrição curta em kebab-case. Não use número de card do kanban, que não significa nada para quem lê o histórico do git:
 
 ```text
-feat/card-5-meus-videos
+feat/meus-videos
 fix/job-status-polling
 docs/contributing
 ```
@@ -58,11 +58,11 @@ Fluxo básico:
 ```bash
 git switch develop
 git pull
-git switch -c feat/card-5-meus-videos
+git switch -c feat/meus-videos
 # trabalho e commits
 git fetch origin
 git rebase origin/develop
-git push -u origin feat/card-5-meus-videos
+git push -u origin feat/meus-videos
 ```
 
 Depois que o PR recebeu revisão, atualize a branch com `git merge origin/develop` em vez de rebase, para não reescrever commits que alguém já leu. Nunca use `git push --force` em `develop` ou `main`. Na sua própria branch, se precisar, use `git push --force-with-lease`.
@@ -79,18 +79,18 @@ Seguimos [Conventional Commits](https://www.conventionalcommits.org/pt-br/v1.0.0
 <rodapé opcional: BREAKING CHANGE, Co-Authored-By>
 ```
 
-| Tipo | Quando usar |
-|---|---|
-| `feat` | Funcionalidade nova |
-| `fix` | Correção de bug |
-| `refactor` | Mudança de código sem mudar comportamento |
-| `test` | Só testes |
-| `docs` | Só documentação |
-| `build` | Dockerfile, dependências, configuração do Vite |
-| `ci` | GitHub Actions |
-| `style` | Só CSS ou formatação, sem mudar comportamento |
-| `perf` | Melhoria de desempenho |
-| `chore` | Manutenção que não se encaixa nos outros tipos |
+| Tipo       | Quando usar                                    |
+| ---------- | ---------------------------------------------- |
+| `feat`     | Funcionalidade nova                            |
+| `fix`      | Correção de bug                                |
+| `refactor` | Mudança de código sem mudar comportamento      |
+| `test`     | Só testes                                      |
+| `docs`     | Só documentação                                |
+| `build`    | Dockerfile, dependências, configuração do Vite |
+| `ci`       | GitHub Actions                                 |
+| `style`    | Só CSS ou formatação, sem mudar comportamento  |
+| `perf`     | Melhoria de desempenho                         |
+| `chore`    | Manutenção que não se encaixa nos outros tipos |
 
 Escopos usados neste repositório: `auth`, `convert`, `job-status`, `videos`, `http`, `routes`, `ui`. Omita o escopo quando a mudança for transversal.
 
@@ -106,6 +106,21 @@ BREAKING CHANGE: exige a versão da API com jobId em uuid.
 - A primeira linha tem no máximo 72 caracteres.
 - Um commit, uma ideia. Não misture refatoração com funcionalidade nova.
 - Use `!` depois do tipo e o rodapé `BREAKING CHANGE:` quando a mudança exigir outra versão da API ou mudar variáveis de ambiente.
+
+## Hook de pre-commit
+
+O `pnpm install` ativa o Husky. A cada `git commit`, o lint-staged roda só nos arquivos staged:
+
+| Arquivos                                               | O que roda                                 |
+| ------------------------------------------------------ | ------------------------------------------ |
+| `*.ts`, `*.tsx`, `*.js`                                | `prettier --write` e depois `eslint --fix` |
+| `*.css`, `*.html`, `*.md`, `*.json`, `*.yml`, `*.yaml` | `prettier --write`                         |
+
+- As correções automáticas entram no próprio commit.
+- Se sobrar um erro que o ESLint não corrige sozinho, o commit é cancelado e a saída mostra arquivo, linha e regra. Corrija e commite de novo.
+- O hook não roda type-check, testes nem build. Eles continuam na lista de "Antes de abrir" do PR.
+- Não pule o hook com `git commit --no-verify`.
+- O estilo está em `.prettierrc.json`. Para formatar o repositório inteiro, rode `pnpm format`.
 
 ## Uso de IA
 
@@ -126,6 +141,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
 
 ```bash
 pnpm lint
+pnpm format:check
 pnpm exec tsc -b
 pnpm test
 pnpm build
@@ -136,7 +152,7 @@ Quando se aplicar:
 - **Criou uma feature ou tela:** siga a estrutura do `CLAUDE.md` (`api/`, `components/`, teste ao lado do componente, CSS próprio, sem `style={}`).
 - **Mudou o que o front espera da API:** confira o contrato com quem cuida do `4frames-core-api` e cite o PR da API na descrição.
 - **Criou uma variável `VITE_*`:** adicione ao `.env.example` com um valor seguro para desenvolvimento.
-- **Fechou uma limitação conhecida:** atualize as seções de *known gaps* do `README.md` e do `CLAUDE.md`.
+- **Fechou uma limitação conhecida:** atualize as seções de _known gaps_ do `README.md` e do `CLAUDE.md`.
 
 ### Ao abrir
 
@@ -145,7 +161,7 @@ Quando se aplicar:
 - Preencha o template: o que muda, por que e como testar.
 - Mudanças visuais levam print ou GIF na descrição.
 - Um assunto por PR. Acima de cerca de 400 linhas alteradas, sem contar renomeações, lockfile e arquivos gerados, considere dividir.
-- Trabalho em andamento vai como *draft*.
+- Trabalho em andamento vai como _draft_.
 
 ### Revisão
 
@@ -158,7 +174,7 @@ Quando se aplicar:
 
 - Só com aprovação, sem conflitos e com CI verde. Enquanto o workflow de CI não existir, vale o checklist do template marcado pelo autor.
 - Quem mescla é quem aprovou, nunca o autor.
-- Use **Create a merge commit**, que preserva os commits feitos à mão. Não use *squash* nem *rebase and merge*.
+- Use **Create a merge commit**, que preserva os commits feitos à mão. Não use _squash_ nem _rebase and merge_.
 - Apague a branch depois do merge.
 
 ## Releases

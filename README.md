@@ -32,6 +32,7 @@ login e a conversão funcionarem — ver o README daquele projeto.
 pnpm dev              # servidor de desenvolvimento
 pnpm test             # roda os testes (Vitest)
 pnpm lint             # eslint
+pnpm format           # prettier (format:check só verifica)
 pnpm exec tsc -b      # type-check
 pnpm build            # type-check + build de produção
 ```
