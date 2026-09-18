@@ -125,31 +125,67 @@ This is a video-to-frames conversion app. The user flow is:
    `GET /videos/:jobId/download` when `DONE`. The URL is meant to be copy/pasted
    and shared — the `jobId` in the path is the correlation point, not something the
    user types in manually anywhere.
+   - While `UPLOAD_PENDING`/`QUEUED`, a **Cancelar** button calls
+     `POST /videos/:jobId/cancel` (`cancelVideoJob` in `job-status-api.ts`), then
+     immediately re-runs `fetchStatus()` instead of waiting for the next poll tick.
+     The backend reuses the `EXPIRED` status for "canceled by the user" (no separate
+     `CANCELLED` status exists — see `VideoJobService.cancelIfPending` in the API).
+     `JobStatusPage` tracks this locally with a `wasCanceledByUser` flag set right
+     after a successful cancel, and renders "Cancelado" (neutral gray box) instead
+     of "Expirado" (red error box) in that case — a job that reaches `EXPIRED` on
+     its own (timeout, never canceled) still shows "Expirado" normally. If you ever
+     see a job show "Expirado" right after clicking Cancelar, this flag is what's
+     supposed to prevent that — check it wasn't lost across a remount/navigation.
+   - While `PROCESSING`, the page opens a second, independent channel —
+     `openVideoJobEventsStream` (`EventSource` against
+     `GET /videos/:jobId/events?token=<accessToken>`, since `EventSource` can't send
+     an `Authorization` header) — and renders a `<progress>` bar from `job.progress`
+     events (`{ type, jobId, userId, percent }`) once at least one has arrived; before
+     that, the spinner still shows so a 0% bar never lies about position. `job.done`
+     and `job.failed` events close the stream client-side and trigger an immediate
+     `fetchStatus()`, but the 3s poll of `GET /videos/:jobId` stays the source of
+     truth for `status` itself — the stream only supplies incremental progress. The
+     `EventSource`'s own `onerror` (it auto-reconnects) is deliberately swallowed,
+     not surfaced as a page error, for the same reason. A `{ type: 'error', message }`
+     event (written by the API when the Redis subscription itself fails — see
+     `GetVideoJobEventsController` in the backend) is part of the `VideoJobEvent`
+     union and is handled by closing the client-side stream; it does not surface as
+     a page error either, since polling remains the fallback. The stream is closed
+     on unmount, on `jobId` change, and once `status` leaves `PROCESSING`.
+   - Progress percentages are real ffmpeg output (`-progress pipe:1` parsed against
+     the real duration from `ffprobe`), not simulated — see the backend's CLAUDE.md,
+     "Real-time progress" section, if progress looks like it jumps: that's the
+     throttle (max 1 update/second) plus fixed checkpoints for the zip/upload steps,
+     most visible on short videos.
 
 There is no "download" feature folder — download lives inside `job-status` because
 it's gated by that job's status, not a standalone destination.
 
-**Live progress (planned, not yet implemented)**: ADR-001 specifies
-`GET /videos/{jobId}/events` as an SSE stream (fed by Redis Pub/Sub from the
-worker) for live progress updates, not WebSocket — the flow is server→client only,
-and SSE composes with the stateless multi-replica API without sticky sessions.
-`JobStatusPage` currently only polls `GET /videos/:jobId` every 3s, which is
-correct as-is (and remains the fallback) but doesn't show incremental progress
-within `PROCESSING`. Don't add an `EventSource` client until the backend actually
-ships that endpoint (it requires the worker + SQS + Redis pieces, none of which
-exist yet) — wiring it earlier would be dead code with nothing to connect to.
+4. `/my-videos` (`features/my-videos`) — lists every conversion job for the logged-in
+   user, most recent first, via `GET /videos?limit=&offset=` (offset/limit
+   pagination, default page size 20, with a "Carregar mais" button once more items
+   remain than are loaded). Each row is a `<Link to={`/jobs/${jobId}`}>` into the
+   existing `job-status` page — no polling or download logic is duplicated here.
+   Empty state links to `/convert`. The status label mapping is shared with
+   `job-status` via `features/job-status/status-label.ts` (`STATUS_LABEL`) rather
+   than duplicated.
+
+**Live progress**: implemented per ADR-001 — `GET /videos/{jobId}/events` is an SSE
+stream (fed by Redis Pub/Sub from the worker), not WebSocket, since the flow is
+server→client only and SSE composes with the stateless multi-replica API without
+sticky sessions. See point 3 above for how `job-status` wires it in.
 
 ## Known gaps
 
 - `4frames-core-api` implements `POST /auth`, `POST /videos`, `POST /videos/:jobId/complete`,
-  and `GET /videos/:jobId` (status). A confirmed job can currently reach `QUEUED`
-  and stay there — there is no worker, SQS, or ffmpeg processing yet, so no job
-  will ever reach `PROCESSING`/`DONE`/`FAILED` today. `GET /videos/:jobId/download`
-  — consumed by `features/job-status` when status is `DONE` — doesn't exist yet on
-  the API either. The frontend client assumes the contract documented in
-  `job-status-api.ts` and must be reconciled once that endpoint ships.
-- The `jobId` used in the `/jobs/:jobId` URL is today the raw sequential database
-  ID (`SERIAL`). It works but is enumerable/guessable, which is a bad property for
-  a URL meant to be shared publicly. If/when the backend exposes a non-sequential
-  identifier (UUID or short hash) for jobs, switch the route param and API calls to
-  use that instead.
+  `POST /videos/:jobId/cancel`, `GET /videos/:jobId` (status),
+  `GET /videos/:jobId/events` (SSE progress), `GET /videos` (list, used by
+  `features/my-videos`) and `GET /videos/:jobId/download`. `video_jobs.id` is a
+  UUID, not a sequential ID, so `jobId` throughout the frontend (route params, API
+  clients) is a string.
+- `GET /videos/:jobId/events` authenticates via `?token=` query param instead of
+  the `Authorization` header used everywhere else, because the browser's native
+  `EventSource` can't set custom headers. That's why `openVideoJobEventsStream`
+  builds the URL by hand instead of going through `apiFetch` — it's the one
+  intentional exception to "never call `fetch`/a raw request API directly", not a
+  pattern to copy for anything else.
