@@ -1,10 +1,13 @@
 import { apiFetch } from '../../../lib/http';
 
 export interface CreateVideoJobResult {
-  jobId: number;
+  jobId: string;
   uploadUrl: string;
   expiresIn: number;
 }
+
+/** Limite de envios simultâneos na tela de conversão (cada um gera um job independente na fila). */
+export const MAX_BATCH_UPLOAD_FILES = 10;
 
 const ALLOWED_CONTENT_TYPES = ['video/mp4', 'video/quicktime'] as const;
 
@@ -42,6 +45,13 @@ export async function uploadVideoToStorage(uploadUrl: string, file: File): Promi
   }
 }
 
-export async function completeVideoJob(jobId: number, token: string): Promise<void> {
+export async function completeVideoJob(jobId: string, token: string): Promise<void> {
   await apiFetch(`/videos/${jobId}/complete`, { method: 'POST' }, token);
+}
+
+export async function submitVideoForConversion(file: File, token: string): Promise<string> {
+  const { jobId, uploadUrl } = await createVideoJob(file, token);
+  await uploadVideoToStorage(uploadUrl, file);
+  await completeVideoJob(jobId, token);
+  return jobId;
 }
