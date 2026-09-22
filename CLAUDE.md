@@ -123,7 +123,8 @@ This is a video-to-frames conversion app. The user flow is:
 3. `/my-videos` (`features/my-videos`) — lists every conversion job for the logged-in
    user, most recent first, via `GET /videos?limit=&offset=` (default page size 20,
    "Carregar mais" when more items exist). Each row links to `/jobs/:jobId`.
-   Status labels are shared via `features/job-status/status-label.ts` (`STATUS_LABEL`).
+   Polls the same endpoint every 3s while any visible job is not terminal (`DONE`/
+   `FAILED`/`EXPIRED`). Status labels: `features/job-status/status-label.ts`.
 4. `/jobs/:jobId` (`features/job-status`) — shareable status page. Polls
    `GET /videos/:jobId` every 3s until terminal; download via
    `GET /videos/:jobId/download` when `DONE`. `jobId` is the API UUID (string).

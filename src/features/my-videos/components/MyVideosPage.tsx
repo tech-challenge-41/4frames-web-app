@@ -2,11 +2,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../auth/context/use-auth';
 import { listVideoJobs, type VideoJobListItem } from '../api/my-videos-api';
-import { STATUS_LABEL } from '../../job-status/status-label';
+import { isActiveJobStatus, STATUS_LABEL } from '../../job-status/status-label';
 import { ApiError } from '../../../lib/http';
 import './my-videos-page.css';
 
 const PAGE_SIZE = 20;
+const POLL_INTERVAL_MS = 3000;
 
 export function MyVideosPage() {
   const { session } = useAuth();
@@ -36,10 +37,36 @@ export function MyVideosPage() {
     [session]
   );
 
+  const refreshVisibleJobs = useCallback(async () => {
+    if (!session) return;
+
+    const limit = Math.max(items.length, PAGE_SIZE);
+
+    try {
+      const result = await listVideoJobs(session.accessToken, 0, limit);
+      setItems(result.items);
+      setTotal(result.total);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Não foi possível carregar seus vídeos.');
+    }
+  }, [session, items.length]);
+
   useEffect(() => {
     const initialFetch = setTimeout(() => void fetchPage(0), 0);
     return () => clearTimeout(initialFetch);
   }, [fetchPage]);
+
+  const hasActiveJobs = items.some((item) => isActiveJobStatus(item.status));
+
+  useEffect(() => {
+    if (loading || !hasActiveJobs) {
+      return;
+    }
+
+    const intervalId = setInterval(() => void refreshVisibleJobs(), POLL_INTERVAL_MS);
+    return () => clearInterval(intervalId);
+  }, [loading, hasActiveJobs, refreshVisibleJobs]);
 
   function handleLoadMore() {
     setLoadingMore(true);
