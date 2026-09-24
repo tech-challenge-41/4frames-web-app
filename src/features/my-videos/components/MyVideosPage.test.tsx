@@ -13,7 +13,7 @@ const fakeSession = {
 };
 
 function renderMyVideosPage() {
-  sessionStorage.setItem('4frames.session', JSON.stringify(fakeSession));
+  localStorage.setItem('4frames.session', JSON.stringify(fakeSession));
 
   return render(
     <MemoryRouter>
@@ -26,7 +26,7 @@ function renderMyVideosPage() {
 
 describe('MyVideosPage', () => {
   beforeEach(() => {
-    sessionStorage.clear();
+    localStorage.clear();
     vi.restoreAllMocks();
   });
 
