@@ -6,6 +6,11 @@ import { isAllowedVideoType, MAX_BATCH_UPLOAD_FILES, submitVideoForConversion } 
 import { ApiError } from '../../../lib/http';
 import './convert-page.css';
 
+interface UploadFailure {
+  fileName: string;
+  message: string;
+}
+
 function mergeFiles(existing: File[], incoming: File[]): File[] {
   const seen = new Set(existing.map((file) => `${file.name}:${file.size}`));
   const merged = [...existing];
@@ -30,10 +35,19 @@ export function ConvertPage() {
   const [status, setStatus] = useState<'idle' | 'converting' | 'error'>('idle');
   const [message, setMessage] = useState<string | null>(null);
   const [progress, setProgress] = useState<string | null>(null);
+  const [failures, setFailures] = useState<UploadFailure[]>([]);
+  const [queuedCount, setQueuedCount] = useState(0);
+
+  function clearSubmitOutcome() {
+    setFailures([]);
+    setQueuedCount(0);
+  }
 
   function addFiles(candidates: File[]) {
     const allowed = candidates.filter(isAllowedVideoType);
     const rejected = candidates.length - allowed.length;
+
+    clearSubmitOutcome();
 
     if (candidates.length > 0 && allowed.length === 0) {
       setFiles([]);
@@ -68,6 +82,7 @@ export function ConvertPage() {
   function removeFile(index: number) {
     setFiles((prev) => prev.filter((_, i) => i !== index));
     setMessage(null);
+    clearSubmitOutcome();
   }
 
   async function handleConvert() {
@@ -75,37 +90,43 @@ export function ConvertPage() {
 
     setStatus('converting');
     setMessage(null);
+    clearSubmitOutcome();
     setProgress(`0 / ${files.length}`);
 
-    const failures: string[] = [];
     let completed = 0;
 
-    await Promise.all(
+    // Promise.all preserva a ordem da entrada, então a lista de falhas sai na ordem em que o
+    // usuário escolheu os arquivos, e não na ordem em que os envios falharam.
+    const results = await Promise.all(
       files.map(async (file) => {
         try {
           await submitVideoForConversion(file, session.accessToken);
           completed += 1;
           setProgress(`${completed} / ${files.length}`);
+
+          return { file, error: null as string | null };
         } catch (err) {
-          const text = err instanceof ApiError ? err.message : 'Falha ao enviar o vídeo.';
-          failures.push(`${file.name}: ${text}`);
+          return { file, error: err instanceof ApiError ? err.message : 'Falha ao enviar o vídeo.' };
         }
       })
     );
 
-    if (completed === 0) {
-      setStatus('error');
-      setMessage(failures.join(' '));
-      setProgress(null);
+    const failed = results.filter((result): result is { file: File; error: string } => result.error !== null);
+
+    if (failed.length === 0) {
+      navigate('/my-videos');
       return;
     }
 
-    if (failures.length > 0) {
-      setStatus('error');
-      setMessage(`${completed} vídeo(s) na fila. Falhas: ${failures.join(' ')}`);
-    }
-
-    navigate('/my-videos');
+    // Com alguma falha a gente fica na tela: navegar aqui desmontava o componente antes de pintar
+    // a mensagem, então quem tinha 1 de 3 falhando não via nada.
+    setStatus('error');
+    setProgress(null);
+    setFailures(failed.map(({ file, error }) => ({ fileName: file.name, message: error })));
+    setQueuedCount(completed);
+    // Só os que falharam seguem selecionados: reenviar a lista inteira criaria um job duplicado
+    // para cada vídeo que já entrou na fila.
+    setFiles(failed.map(({ file }) => file));
   }
 
   return (
@@ -149,6 +170,27 @@ export function ConvertPage() {
 
         {progress && status === 'converting' && <p className="convert-progress">{progress} enviado(s)</p>}
         {message && <p className="error">{message}</p>}
+
+        {failures.length > 0 && (
+          <>
+            {queuedCount > 0 && <p className="success">{queuedCount} vídeo(s) entraram na fila.</p>}
+            <p className="error">
+              Não foi possível enviar {failures.length} vídeo(s). Continuam selecionados, para tentar de novo:
+            </p>
+            <ul className="convert-failure-list" aria-label="Vídeos que não foram enviados">
+              {failures.map((failure, index) => (
+                <li key={`${failure.fileName}-${index}`}>
+                  <strong>{failure.fileName}</strong>: {failure.message}
+                </li>
+              ))}
+            </ul>
+            {queuedCount > 0 && (
+              <button type="button" className="btn-secondary" onClick={() => navigate('/my-videos')}>
+                Ver meus vídeos
+              </button>
+            )}
+          </>
+        )}
 
         <button
           type="button"
