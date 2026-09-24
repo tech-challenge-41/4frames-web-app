@@ -22,6 +22,36 @@
   background: var(--color-green-light);
 }
 
+.convert-file-list {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  width: 100%;
+  text-align: left;
+}
+
+.convert-file-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.convert-file-remove {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.convert-progress {
+  margin: 12px 0 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
 .card--wide .btn-primary {
   margin-top: 20px;
   width: 100%;
