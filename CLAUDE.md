@@ -92,6 +92,11 @@ event keeps React state in sync when another tab logs in or out.
 
 ## Commands
 
+Node 24 (`.nvmrc`) and pnpm 10 (`packageManager`), same as core-api. Newer Node versions expose
+their own `localStorage` global that shadows jsdom's — `src/test/install-storage-polyfill.ts`
+(loaded by `src/test/setup.ts`) swaps in an in-memory `Storage` when the one in the environment
+does not work, so the suite runs on any version.
+
 ```bash
 pnpm dev       # start dev server
 pnpm test      # run vitest once

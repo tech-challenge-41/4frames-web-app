@@ -56,3 +56,26 @@
   margin-top: 20px;
   width: 100%;
 }
+
+.convert-failure-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  width: 100%;
+  text-align: left;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.convert-failure-list li {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.convert-failure-list li:last-child {
+  border-bottom: none;
+}
+
+.convert-failure-list strong {
+  color: var(--text);
+}
