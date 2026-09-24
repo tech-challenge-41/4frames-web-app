@@ -19,6 +19,9 @@ export function AppLayout() {
           <NavLink to="/convert" end className={({ isActive }) => (isActive ? 'active' : '')}>
             Converter
           </NavLink>
+          <NavLink to="/my-videos" end className={({ isActive }) => (isActive ? 'active' : '')}>
+            Meus vídeos
+          </NavLink>
         </nav>
         <div className="app-user">
           <span>{session?.user.email}</span>
