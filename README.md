@@ -6,6 +6,10 @@ Consome a API em [4frames-core-api](../4frames-core-api).
 Para a arquitetura de código (estrutura de features, convenções, fluxo do produto),
 ver [CLAUDE.md](./CLAUDE.md).
 
+## Pré-requisitos
+
+- Node.js 24 (ver `.nvmrc`) e pnpm 10 (fixado em `packageManager`), os mesmos do core-api
+
 ## Desenvolvimento
 
 ```bash
