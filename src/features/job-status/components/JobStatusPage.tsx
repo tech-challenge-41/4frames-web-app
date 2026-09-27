@@ -135,7 +135,9 @@ export function JobStatusPage() {
   const isCanceled = status === 'EXPIRED' && wasCanceledByUser;
   const isFailed = (status === 'FAILED' || status === 'EXPIRED') && !isCanceled;
   const isCancelable = status !== undefined && CANCELABLE_STATUSES.has(status);
-  const showProgressBar = status === 'PROCESSING' && progress !== undefined;
+  // O SSE traz o percentual ao vivo; até o primeiro evento, vale o que o GET /videos/:jobId trouxe.
+  const shownProgress = progress ?? job?.progress;
+  const showProgressBar = status === 'PROCESSING' && shownProgress !== undefined;
   const statusLabel = isCanceled ? 'Cancelado' : (STATUS_LABEL[status ?? ''] ?? status);
   const statusBoxModifier = isCanceled ? 'canceled' : status?.toLowerCase();
 
@@ -159,7 +161,7 @@ export function JobStatusPage() {
         )}
 
         {showProgressBar && (
-          <progress className="job-progress" value={progress} max={100} aria-label="Progresso da conversão" />
+          <progress className="job-progress" value={shownProgress} max={100} aria-label="Progresso da conversão" />
         )}
 
         {isDone && (

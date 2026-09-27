@@ -122,4 +122,15 @@ describe('JobStatusPage', () => {
       expect(openStreamSpy).toHaveBeenCalledWith('job-2', 'token-123');
     });
   });
+
+  it('shows the progress from GET /videos/:jobId until the SSE sends its first event', async () => {
+    vi.spyOn(jobStatusApi, 'getVideoJobStatus').mockResolvedValue(baseStatus({ status: 'PROCESSING', progress: 30 }));
+    const fakeEventSource = { close: vi.fn(), onmessage: null, onerror: null } as unknown as EventSource;
+    vi.spyOn(jobStatusApi, 'openVideoJobEventsStream').mockReturnValue(fakeEventSource);
+
+    renderJobStatusPage();
+
+    const bar = await screen.findByRole('progressbar', { name: 'Progresso da conversão' });
+    expect(bar).toHaveAttribute('value', '30');
+  });
 });
