@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../auth/context/use-auth';
-import { listVideoJobs, type VideoJobListItem } from '../api/my-videos-api';
+import { getDownloadUrl, listVideoJobs, type VideoJobListItem } from '../api/my-videos-api';
 import { isActiveJobStatus, STATUS_LABEL } from '../../job-status/status-label';
+import { formatDateTime } from '../../../lib/format';
 import { ApiError } from '../../../lib/http';
+import { navigateTo } from '../../../lib/navigation';
 import './my-videos-page.css';
 
 const PAGE_SIZE = 20;
@@ -17,6 +19,7 @@ export function MyVideosPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [downloadingJobId, setDownloadingJobId] = useState<string | null>(null);
 
   const fetchPage = useCallback(
     async (offset: number) => {
@@ -73,6 +76,21 @@ export function MyVideosPage() {
     void fetchPage(items.length);
   }
 
+  async function handleDownload(jobId: string) {
+    if (!session) return;
+
+    setDownloadingJobId(jobId);
+
+    try {
+      const { downloadUrl } = await getDownloadUrl(jobId, session.accessToken);
+      navigateTo(downloadUrl);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Falha ao gerar o link de download.');
+    } finally {
+      setDownloadingJobId(null);
+    }
+  }
+
   const hasMore = items.length < total;
 
   return (
@@ -93,16 +111,45 @@ export function MyVideosPage() {
 
         {!loading && items.length > 0 && (
           <ul className="video-list">
-            {items.map((item) => (
-              <li key={item.jobId} className="video-list__item">
-                <Link to={`/jobs/${item.jobId}`} className="video-list__link">
-                  <span className="video-list__name">{item.fileName}</span>
-                  <span className={`video-list__status video-list__status--${item.status.toLowerCase()}`}>
-                    {STATUS_LABEL[item.status] ?? item.status}
-                  </span>
-                </Link>
-              </li>
-            ))}
+            {items.map((item) => {
+              // A API só manda progress em PROCESSING; o filtro protege contra um valor antigo depois do DONE.
+              const progress = item.status === 'PROCESSING' ? item.progress : undefined;
+              const downloading = downloadingJobId === item.jobId;
+
+              return (
+                <li key={item.jobId} className="video-list__item">
+                  <Link to={`/jobs/${item.jobId}`} className="video-list__link">
+                    <span className="video-list__info">
+                      <span className="video-list__name">{item.fileName}</span>
+                      <time className="video-list__date" dateTime={item.createdAt}>
+                        {formatDateTime(item.createdAt)}
+                      </time>
+                      {item.failureReason && <span className="video-list__reason">{item.failureReason}</span>}
+                      {progress !== undefined && (
+                        <span className="video-list__progress">
+                          <progress value={progress} max={100} aria-label={`Progresso de ${item.fileName}`} />
+                          <span className="video-list__percent">{Math.round(progress)}%</span>
+                        </span>
+                      )}
+                    </span>
+                    <span className={`video-list__status video-list__status--${item.status.toLowerCase()}`}>
+                      {STATUS_LABEL[item.status] ?? item.status}
+                    </span>
+                  </Link>
+                  {item.hasDownload && (
+                    <button
+                      type="button"
+                      className="btn-secondary video-list__download"
+                      onClick={() => void handleDownload(item.jobId)}
+                      disabled={downloading}
+                      aria-label={`Baixar o .zip de ${item.fileName}`}
+                    >
+                      {downloading ? 'Gerando link…' : 'Baixar .zip'}
+                    </button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
 
