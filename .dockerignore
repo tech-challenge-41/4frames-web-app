@@ -1,0 +1,11 @@
+node_modules
+dist
+coverage
+*.log
+.git
+.github
+.husky
+# .env e .env.local trazem o endereço da API do desenvolvimento. Na imagem vale o ARG VITE_API_URL.
+.env
+.env.*
+*.local
