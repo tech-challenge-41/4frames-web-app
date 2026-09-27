@@ -39,3 +39,31 @@ pnpm format           # prettier (format:check só verifica)
 pnpm exec tsc -b      # type-check
 pnpm build            # type-check + build de produção
 ```
+
+## Imagem de produção
+
+O `Dockerfile` faz o build do Vite em `node:24-alpine` e serve o `dist` com nginx sem root
+(`nginxinc/nginx-unprivileged`), na porta **8080**. A configuração fica em `nginx/default.conf`:
+
+- rotas da SPA (`/my-videos`, `/jobs/:jobId`…) caem no `index.html`;
+- `/assets/`, com hash no nome, tem cache de um ano, e um asset inexistente devolve 404;
+- `GET /healthz` responde às probes do Kubernetes.
+
+```bash
+docker build -t 4frames-web .
+docker run --rm -p 8081:8080 4frames-web   # http://localhost:8081/healthz
+```
+
+O `VITE_API_URL` é um `ARG` de build. O Vite o embute no JavaScript, então ele não muda depois que a imagem
+está pronta. O padrão é **`/api`**, um caminho relativo: o navegador chama a API no mesmo endereço que serviu
+o front, e no cluster o Ingress leva `/api` à API. Assim a mesma imagem funciona em qualquer host.
+
+Para usar a imagem fora do Ingress, passe um endereço absoluto e libere a origem do front no `CORS_ORIGIN`
+da API:
+
+```bash
+docker build --build-arg VITE_API_URL=http://localhost:3000 -t 4frames-web .
+```
+
+No cluster local, o `scripts/k8s-local.sh` do core-api constrói esta imagem a partir deste clone, que deve
+estar ao lado do `4frames-core-api`, e a serve em http://localhost:8080.

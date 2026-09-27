@@ -82,7 +82,9 @@ event keeps React state in sync when another tab logs in or out.
 
 - All requests go through `lib/http.ts`'s `apiFetch(path, init, token?)`.
 - `VITE_API_URL` (see `.env.example`) is the core-api base URL, defaults to
-  `http://localhost:3000`.
+  `http://localhost:3000`. The production image (`Dockerfile`) builds with `/api`, a path relative
+  to the host that served the front (the cluster Ingress routes `/api` to the API), so build every
+  API URL by concatenating `API_URL` + path. `new URL(API_URL)` without a base throws on `/api`.
 - Auth: pass the JWT as the third argument to `apiFetch`; it's sent as
   `Authorization: Bearer <token>`. Get the token from `useAuth().session?.accessToken`.
 - Non-2xx responses throw `ApiError` (has `.status` and a message pulled from the
@@ -104,6 +106,7 @@ pnpm lint      # eslint
 pnpm format    # prettier for the whole repo (format:check to verify)
 pnpm exec tsc -b   # type-check
 pnpm build     # type-check + production build
+docker build -t 4frames-web .   # production image: nginx without root on port 8080 (see README)
 ```
 
 Run `pnpm exec tsc -b`, `pnpm lint`, `pnpm format:check`, and `pnpm test` before considering any change done.
