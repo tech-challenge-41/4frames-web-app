@@ -33,25 +33,52 @@ export async function createVideoJob(file: File, token: string): Promise<CreateV
   return response.json() as Promise<CreateVideoJobResult>;
 }
 
-export async function uploadVideoToStorage(uploadUrl: string, file: File): Promise<void> {
-  const response = await fetch(uploadUrl, {
-    method: 'PUT',
-    headers: { 'Content-Type': file.type },
-    body: file
-  });
+/** Percentual (0–100) do arquivo que já saiu do navegador. */
+export type UploadProgressHandler = (percent: number) => void;
 
-  if (!response.ok) {
-    throw new Error('Falha ao enviar o arquivo para o armazenamento.');
-  }
+const STORAGE_UPLOAD_ERROR = 'Falha ao enviar o arquivo para o armazenamento.';
+
+/**
+ * PUT direto no S3 pela URL pré-assinada: os bytes não passam pela API. Usa XMLHttpRequest, e não fetch, porque
+ * só ele avisa quanto do corpo já foi enviado (`upload.onprogress`).
+ */
+export function uploadVideoToStorage(uploadUrl: string, file: File, onProgress?: UploadProgressHandler): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+
+    request.open('PUT', uploadUrl);
+    // A URL é assinada com o Content-Type: o PUT precisa mandar o mesmo.
+    request.setRequestHeader('Content-Type', file.type);
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) {
+        onProgress?.(Math.min(100, Math.round((event.loaded / event.total) * 100)));
+      }
+    };
+    request.onload = () => {
+      if (request.status >= 200 && request.status < 300) {
+        onProgress?.(100);
+        resolve();
+      } else {
+        reject(new Error(STORAGE_UPLOAD_ERROR));
+      }
+    };
+    request.onerror = () => reject(new Error(STORAGE_UPLOAD_ERROR));
+    request.send(file);
+  });
 }
 
 export async function completeVideoJob(jobId: string, token: string): Promise<void> {
   await apiFetch(`/videos/${jobId}/complete`, { method: 'POST' }, token);
 }
 
-export async function submitVideoForConversion(file: File, token: string): Promise<string> {
+/** Cria o job, envia o arquivo ao S3 avisando o progresso e confirma o upload. Pular o `complete` deixa o job preso. */
+export async function submitVideoForConversion(
+  file: File,
+  token: string,
+  onProgress?: UploadProgressHandler
+): Promise<string> {
   const { jobId, uploadUrl } = await createVideoJob(file, token);
-  await uploadVideoToStorage(uploadUrl, file);
+  await uploadVideoToStorage(uploadUrl, file, onProgress);
   await completeVideoJob(jobId, token);
   return jobId;
 }
