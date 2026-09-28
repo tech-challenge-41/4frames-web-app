@@ -107,6 +107,19 @@
   font-size: 13px;
 }
 
+/* Celular: o status desce para baixo do nome, e o motivo da falha usa a largura toda em vez de uma coluna estreita. */
+@media (max-width: 560px) {
+  .video-list__link {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .video-list__info {
+    width: 100%;
+  }
+}
+
 .video-list__status {
   flex-shrink: 0;
   font-size: 12px;
