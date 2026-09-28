@@ -11,13 +11,30 @@ interface UploadFailure {
   message: string;
 }
 
+/** Onde está o envio de um arquivo: o PUT no S3 (com o percentual), a confirmação na API, a fila ou a falha. */
+interface FileUpload {
+  state: 'sending' | 'confirming' | 'queued' | 'failed';
+  percent: number;
+}
+
+const UPLOAD_LABELS: Record<Exclude<FileUpload['state'], 'sending'>, string> = {
+  confirming: 'Confirmando…',
+  queued: 'Na fila',
+  failed: 'Falhou'
+};
+
+/** Nome e tamanho identificam o arquivo na seleção: a mesma escolha duas vezes não entra duplicada. */
+function fileKey(file: File): string {
+  return `${file.name}:${file.size}`;
+}
+
 function mergeFiles(existing: File[], incoming: File[]): File[] {
-  const seen = new Set(existing.map((file) => `${file.name}:${file.size}`));
+  const seen = new Set(existing.map(fileKey));
   const merged = [...existing];
 
   for (const file of incoming) {
     if (!isAllowedVideoType(file)) continue;
-    const key = `${file.name}:${file.size}`;
+    const key = fileKey(file);
     if (seen.has(key)) continue;
     seen.add(key);
     merged.push(file);
@@ -34,7 +51,7 @@ export function ConvertPage() {
   const [dragActive, setDragActive] = useState(false);
   const [status, setStatus] = useState<'idle' | 'converting' | 'error'>('idle');
   const [message, setMessage] = useState<string | null>(null);
-  const [progress, setProgress] = useState<string | null>(null);
+  const [uploads, setUploads] = useState<Record<string, FileUpload>>({});
   const [failures, setFailures] = useState<UploadFailure[]>([]);
   const [queuedCount, setQueuedCount] = useState(0);
 
@@ -91,7 +108,10 @@ export function ConvertPage() {
     setStatus('converting');
     setMessage(null);
     clearSubmitOutcome();
-    setProgress(`0 / ${files.length}`);
+    setUploads(Object.fromEntries(files.map((file) => [fileKey(file), { state: 'sending', percent: 0 }])));
+
+    const updateUpload = (file: File, upload: FileUpload) =>
+      setUploads((previous) => ({ ...previous, [fileKey(file)]: upload }));
 
     let completed = 0;
 
@@ -100,12 +120,20 @@ export function ConvertPage() {
     const results = await Promise.all(
       files.map(async (file) => {
         try {
-          await submitVideoForConversion(file, session.accessToken);
+          // Com o arquivo inteiro no S3, falta só o `complete` na API.
+          await submitVideoForConversion(file, session.accessToken, (percent) =>
+            updateUpload(file, { state: percent < 100 ? 'sending' : 'confirming', percent })
+          );
           completed += 1;
-          setProgress(`${completed} / ${files.length}`);
+          updateUpload(file, { state: 'queued', percent: 100 });
 
           return { file, error: null as string | null };
         } catch (err) {
+          setUploads((previous) => ({
+            ...previous,
+            [fileKey(file)]: { state: 'failed', percent: previous[fileKey(file)]?.percent ?? 0 }
+          }));
+
           return { file, error: err instanceof ApiError ? err.message : 'Falha ao enviar o vídeo.' };
         }
       })
@@ -121,7 +149,8 @@ export function ConvertPage() {
     // Com alguma falha a gente fica na tela: navegar aqui desmontava o componente antes de pintar
     // a mensagem, então quem tinha 1 de 3 falhando não via nada.
     setStatus('error');
-    setProgress(null);
+    // A lista volta a ser uma seleção comum: os que falharam, com o botão de remover, prontos para reenviar.
+    setUploads({});
     setFailures(failed.map(({ file, error }) => ({ fileName: file.name, message: error })));
     setQueuedCount(completed);
     // Só os que falharam seguem selecionados: reenviar a lista inteira criaria um job duplicado
@@ -157,18 +186,34 @@ export function ConvertPage() {
 
         {files.length > 0 && (
           <ul className="convert-file-list">
-            {files.map((file, index) => (
-              <li key={`${file.name}-${file.size}-${index}`}>
-                <span>{file.name}</span>
-                <button type="button" className="btn-secondary convert-file-remove" onClick={() => removeFile(index)}>
-                  Remover
-                </button>
-              </li>
-            ))}
+            {files.map((file, index) => {
+              const upload = uploads[fileKey(file)];
+
+              return (
+                <li key={`${fileKey(file)}-${index}`} className={upload ? 'convert-file--uploading' : undefined}>
+                  <span className="convert-file-name">{file.name}</span>
+                  {upload ? (
+                    <span className={`convert-file-upload convert-file-upload--${upload.state}`}>
+                      <progress value={upload.percent} max={100} aria-label={`Envio de ${file.name}`} />
+                      <span className="convert-file-state">
+                        {upload.state === 'sending' ? `${upload.percent}%` : UPLOAD_LABELS[upload.state]}
+                      </span>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn-secondary convert-file-remove"
+                      onClick={() => removeFile(index)}
+                    >
+                      Remover
+                    </button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
 
-        {progress && status === 'converting' && <p className="convert-progress">{progress} enviado(s)</p>}
         {message && <p className="error">{message}</p>}
 
         {failures.length > 0 && (

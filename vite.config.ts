@@ -14,7 +14,7 @@ export default defineConfig({
       exclude: ['src/**/*.test.{ts,tsx}', 'src/test/**', 'src/main.tsx', 'src/**/*.d.ts'],
       reporter: ['text'],
       // Gate do CI (D2, sem SonarCloud): o valor medido menos uma folga pequena. Suba conforme a cobertura crescer.
-      thresholds: { statements: 71, branches: 72, functions: 62, lines: 73 }
+      thresholds: { statements: 76, branches: 74, functions: 70, lines: 77 }
     }
   }
 });
