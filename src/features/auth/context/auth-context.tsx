@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { AuthenticatedUserSession } from '../api/auth-api';
+import { UNAUTHORIZED_EVENT } from '../../../lib/http';
 import { AuthContext } from './context';
 
 const STORAGE_KEY = '4frames.session';
@@ -79,6 +80,19 @@ function readStoredSession(): AuthenticatedUserSession | null {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSessionState] = useState<AuthenticatedUserSession | null>(readStoredSession);
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  // Token vencido ou inválido (401 numa chamada autenticada): a sessão acaba, e o ProtectedRoute leva ao login.
+  useEffect(() => {
+    function onUnauthorized() {
+      removeStorageItem('local', STORAGE_KEY);
+      setSessionState(null);
+      setSessionExpired(true);
+    }
+
+    window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+  }, []);
 
   useEffect(() => {
     function onStorage(event: StorageEvent) {
@@ -96,14 +110,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setSession = useCallback((next: AuthenticatedUserSession) => {
     writeStorageItem('local', STORAGE_KEY, JSON.stringify(next));
     setSessionState(next);
+    setSessionExpired(false);
   }, []);
 
   const logout = useCallback(() => {
     removeStorageItem('local', STORAGE_KEY);
     setSessionState(null);
+    setSessionExpired(false);
   }, []);
 
-  const value = useMemo(() => ({ session, setSession, logout }), [session, setSession, logout]);
+  const value = useMemo(
+    () => ({ session, sessionExpired, setSession, logout }),
+    [session, sessionExpired, setSession, logout]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

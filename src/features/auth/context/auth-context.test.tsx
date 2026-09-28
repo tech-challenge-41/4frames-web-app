@@ -1,9 +1,10 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { AuthProvider } from './auth-context';
 import { useAuth } from './use-auth';
 import type { AuthenticatedUserSession } from '../api/auth-api';
+import { UNAUTHORIZED_EVENT } from '../../../lib/http';
 
 const STORAGE_KEY = '4frames.session';
 
@@ -15,11 +16,12 @@ const session: AuthenticatedUserSession = {
 
 /** Expõe o contexto na tela para os testes não dependerem de nenhuma página. */
 function SessionProbe() {
-  const { session: current, setSession, logout } = useAuth();
+  const { session: current, sessionExpired, setSession, logout } = useAuth();
 
   return (
     <div>
       <span data-testid="email">{current?.user.email ?? 'sem sessão'}</span>
+      <span data-testid="expired">{sessionExpired ? 'expirada' : 'ativa'}</span>
       <button type="button" onClick={() => setSession(session)}>
         entrar
       </button>
@@ -114,5 +116,34 @@ describe('AuthProvider', () => {
     await user.click(screen.getByRole('button', { name: 'sair' }));
 
     expect(screen.getByTestId('email')).toHaveTextContent('sem sessão');
+  });
+  it('ends the session and flags it as expired when an authenticated call is rejected', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+    renderProbe();
+
+    act(() => {
+      window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+    });
+
+    expect(screen.getByTestId('email')).toHaveTextContent('sem sessão');
+    expect(screen.getByTestId('expired')).toHaveTextContent('expirada');
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+  });
+
+  it('clears the expired flag on a new login and on a manual logout', async () => {
+    const user = userEvent.setup();
+    renderProbe();
+    act(() => {
+      window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+    });
+
+    await user.click(screen.getByRole('button', { name: 'entrar' }));
+    expect(screen.getByTestId('expired')).toHaveTextContent('ativa');
+
+    act(() => {
+      window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+    });
+    await user.click(screen.getByRole('button', { name: 'sair' }));
+    expect(screen.getByTestId('expired')).toHaveTextContent('ativa');
   });
 });

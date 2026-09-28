@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { API_URL, ApiError, apiFetch } from './http';
+import { API_URL, ApiError, apiFetch, UNAUTHORIZED_EVENT } from './http';
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -49,6 +49,32 @@ describe('apiFetch', () => {
       status: 401,
       message: 'Authorization header is missing'
     });
+  });
+
+  it('announces an expired session when an authenticated call gets 401', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(401, { error: 'Invalid token' })));
+    const listener = vi.fn();
+    window.addEventListener(UNAUTHORIZED_EVENT, listener);
+
+    try {
+      await expect(apiFetch('/videos', {}, 'expired-token')).rejects.toBeInstanceOf(ApiError);
+      expect(listener).toHaveBeenCalledTimes(1);
+    } finally {
+      window.removeEventListener(UNAUTHORIZED_EVENT, listener);
+    }
+  });
+
+  it('does not announce anything on a 401 without token, like a wrong password', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(401, { message: 'Invalid credentials' })));
+    const listener = vi.fn();
+    window.addEventListener(UNAUTHORIZED_EVENT, listener);
+
+    try {
+      await expect(apiFetch('/auth/login', { method: 'POST' })).rejects.toMatchObject({ status: 401 });
+      expect(listener).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener(UNAUTHORIZED_EVENT, listener);
+    }
   });
 
   it('uses a generic message when the error body is not JSON', async () => {
