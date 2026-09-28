@@ -105,6 +105,7 @@ BREAKING CHANGE: exige a versão da API com jobId em uuid.
 - Escreva em português, o idioma da documentação do projeto.
 - A primeira linha tem no máximo 72 caracteres.
 - Um commit, uma ideia. Não misture refatoração com funcionalidade nova.
+- Não cite cards do kanban, nem na primeira linha nem no corpo: nada de "Card 7" ou "fecha o Card 5". Descreva pelo requisito ou pelo comportamento. Como no nome da branch, o número do card não significa nada para quem lê o histórico do git.
 - Use `!` depois do tipo e o rodapé `BREAKING CHANGE:` quando a mudança exigir outra versão da API ou mudar variáveis de ambiente.
 
 ## Hook de pre-commit
@@ -158,6 +159,7 @@ Quando se aplicar:
 
 - A base é `develop`. Só o PR de release usa `main`.
 - O título segue o formato de commit, por exemplo `feat(videos): tela meus vídeos`.
+- Título e corpo seguem a regra dos commits: sem citar cards do kanban, descrevendo pelo requisito ou pelo comportamento.
 - Preencha o template: o que muda, por que e como testar.
 - Mudanças visuais levam print ou GIF na descrição.
 - Um assunto por PR. Acima de cerca de 400 linhas alteradas, sem contar renomeações, lockfile e arquivos gerados, considere dividir.
