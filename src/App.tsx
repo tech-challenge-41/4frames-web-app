@@ -21,7 +21,8 @@ function App() {
           </Route>
         </Route>
 
-        <Route path="*" element={<Navigate to="/convert" replace />} />
+        {/* "Meus vídeos" é a tela principal: a raiz e qualquer endereço desconhecido levam a ela. */}
+        <Route path="*" element={<Navigate to="/my-videos" replace />} />
       </Routes>
     </AuthProvider>
   );
