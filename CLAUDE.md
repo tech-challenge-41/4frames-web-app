@@ -127,10 +127,13 @@ This is a video-to-frames conversion app. The user flow is:
    `MAX_BATCH_UPLOAD_FILES` in `convert-api.ts`), click **Converter**. For each file,
    in parallel:
    1. `POST /videos` (`UPLOAD_PENDING` + presigned S3 upload URL);
-   2. `PUT` to that URL (bytes bypass the API);
+   2. `PUT` to that URL (bytes bypass the API), through `XMLHttpRequest` in `uploadVideoToStorage`:
+      `fetch` cannot report how much of the body was sent, `upload.onprogress` can;
    3. `POST /videos/:jobId/complete` → `QUEUED`.
       All three steps must run per file — skipping `complete` leaves the job stuck in
-      `UPLOAD_PENDING`. On success, navigate to `/my-videos`.
+      `UPLOAD_PENDING`. While they run, each file has its own `<progress>` bar and state
+      (percentage sent, "Confirmando…", "Na fila" or "Falhou"). On success, navigate to `/my-videos`;
+      with a failure, only the failed files stay selected, as a plain selection, ready to retry.
 3. `/my-videos` (`features/my-videos`) — lists every conversion job for the logged-in
    user, most recent first, via `GET /videos?limit=&offset=` (default page size 20,
    "Carregar mais" when more items exist). Each row links to `/jobs/:jobId`.
@@ -148,8 +151,9 @@ There is no separate "download" feature folder — download lives inside `job-st
 
 ## Known gaps
 
-- Coverage is gated at about 70 % (`vite.config.ts`). The thin spots are the thin API wrappers (`convert-api`,
-  `job-status-api`, `auth-api`) and `routes/` (`AppLayout`, `ProtectedRoute`).
+- Coverage is gated at about 75 % (`vite.config.ts`). The thin spots are the thin API wrappers (`job-status-api`,
+  `auth-api`) and `routes/` (`AppLayout`, `ProtectedRoute`).
 - Email on `job.done`/`job.failed` is sent by `apps/notifier`; the UI does not surface it.
 - `GET /videos/:jobId/events` uses `?token=` (EventSource cannot send `Authorization`);
-  `openVideoJobEventsStream` is the intentional exception to routing everything through `apiFetch`.
+  `openVideoJobEventsStream` is the intentional exception to routing everything through `apiFetch`. The other one
+  is `uploadVideoToStorage`: its `PUT` goes to S3, not to the API, and uses `XMLHttpRequest` for the progress.

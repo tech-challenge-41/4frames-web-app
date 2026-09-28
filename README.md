@@ -25,7 +25,8 @@ login e a conversão funcionarem — ver o README daquele projeto.
 
 1. `/login` — autenticação por email/senha (sessão em `localStorage`, compartilhada entre abas).
 2. `/convert` — selecionar ou arrastar **um ou mais** vídeos (`.mp4` ou `.mov`) e clicar em **Converter**.
-   Cada arquivo gera um job na API (upload direto ao S3 + confirmação).
+   Cada arquivo gera um job na API (upload direto ao S3 + confirmação), com uma barra de progresso própria durante
+   o envio.
 3. `/my-videos` — listagem paginada dos jobs do usuário.
 4. `/jobs/:jobId` — detalhe de um job (link compartilhável), progresso SSE, cancelamento e download do `.zip` quando `DONE`.
 
