@@ -102,6 +102,7 @@ does not work, so the suite runs on any version.
 ```bash
 pnpm dev       # start dev server
 pnpm test      # run vitest once
+pnpm test:coverage   # vitest with coverage; fails below the thresholds in vite.config.ts (the CI gate)
 pnpm lint      # eslint
 pnpm format    # prettier for the whole repo (format:check to verify)
 pnpm exec tsc -b   # type-check
@@ -109,7 +110,9 @@ pnpm build     # type-check + production build
 docker build -t 4frames-web .   # production image: nginx without root on port 8080 (see README)
 ```
 
-Run `pnpm exec tsc -b`, `pnpm lint`, `pnpm format:check`, and `pnpm test` before considering any change done.
+Run `pnpm exec tsc -b`, `pnpm lint`, `pnpm format:check`, and `pnpm test:coverage` before considering any change done:
+it is what CI runs (`.github/workflows/ci.yml`). Raise `test.coverage.thresholds` when coverage grows; never lower them
+to get a PR through.
 
 Formatting follows `.prettierrc.json` (single quotes, semicolons, no trailing commas, 120 columns).
 A Husky `pre-commit` hook runs lint-staged on staged files: `prettier --write` then `eslint --fix`
@@ -145,7 +148,8 @@ There is no separate "download" feature folder — download lives inside `job-st
 
 ## Known gaps
 
-- Vitest coverage is thin outside `LoginPage` and `MyVideosPage` (see each feature's tests).
+- Coverage is gated at about 70 % (`vite.config.ts`). The thin spots are the thin API wrappers (`convert-api`,
+  `job-status-api`, `auth-api`) and `routes/` (`AppLayout`, `ProtectedRoute`).
 - Email on `job.done`/`job.failed` is sent by `apps/notifier`; the UI does not surface it.
 - `GET /videos/:jobId/events` uses `?token=` (EventSource cannot send `Authorization`);
   `openVideoJobEventsStream` is the intentional exception to routing everything through `apiFetch`.

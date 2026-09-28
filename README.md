@@ -34,6 +34,7 @@ login e a conversão funcionarem — ver o README daquele projeto.
 ```bash
 pnpm dev              # servidor de desenvolvimento
 pnpm test             # roda os testes (Vitest)
+pnpm test:coverage    # testes com cobertura; falha abaixo dos limites do vite.config.ts
 pnpm lint             # eslint
 pnpm format           # prettier (format:check só verifica)
 pnpm exec tsc -b      # type-check
@@ -67,3 +68,19 @@ docker build --build-arg VITE_API_URL=http://localhost:3000 -t 4frames-web .
 
 No cluster local, o `scripts/k8s-local.sh` do core-api constrói esta imagem a partir deste clone, que deve
 estar ao lado do `4frames-core-api`, e a serve em http://localhost:8080.
+
+## CI/CD (GitHub Actions)
+
+- **CI** (`.github/workflows/ci.yml`), em toda PR, inclusive as empilhadas sobre outra branch, e em push para
+  `develop`/`main`: `test` (Vitest com o gate de cobertura de `vite.config.ts`) → `lint` (ESLint e Prettier) →
+  `type-check` (`tsc -b`) → `build` (Vite e a imagem Docker, sem push, com o smoke abaixo).
+- **CD** (`.github/workflows/cd.yml`), em tag `release-*`: constrói a imagem, roda o smoke e publica
+  `ghcr.io/tech-challenge-41/4frames-web:<tag>` no GHCR.
+
+O smoke (`.github/scripts/smoke-web-image.sh`) sobe a imagem e confere `/healthz`, as rotas da SPA devolvendo o
+`index.html`, o 404 de um asset inexistente e o processo sem root. Para rodar localmente:
+
+```bash
+docker build -t 4frames-web:ci .
+bash .github/scripts/smoke-web-image.sh 4frames-web:ci
+```

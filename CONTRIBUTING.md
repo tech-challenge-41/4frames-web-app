@@ -143,7 +143,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
 pnpm lint
 pnpm format:check
 pnpm exec tsc -b
-pnpm test
+pnpm test:coverage
 pnpm build
 ```
 
@@ -172,7 +172,7 @@ Quando se aplicar:
 
 ### Merge
 
-- Só com aprovação, sem conflitos e com CI verde. Enquanto o workflow de CI não existir, quem revisa confirma que os comandos de "Antes de abrir" passam.
+- Só com aprovação, sem conflitos e com CI verde. O CI (`.github/workflows/ci.yml`) roda os mesmos comandos de "Antes de abrir" em toda PR, inclusive as empilhadas sobre outra branch, e constrói e testa a imagem Docker.
 - Quem mescla é quem aprovou, nunca o autor.
 - Use **Create a merge commit**, que preserva os commits feitos à mão. Não use _squash_ nem _rebase and merge_.
 - Apague a branch depois do merge.
