@@ -30,6 +30,8 @@ Each feature is self-contained: its own `api/`, `components/`, optional `context
 Cross-feature code only lives in `lib/`, `routes/`, or `styles/` — never import one
 feature's internals from another feature directly (route through `routes/` instead).
 
+Current features: `auth`, `convert`, `my-videos`, `job-status`.
+
 ## Adding a new feature
 
 1. Create `src/features/<name>/api/<name>-api.ts`:
@@ -72,13 +74,17 @@ rule (a file exporting a component must export nothing else):
 - `use-<name>.ts` — the `use<Name>()` hook that reads the context and throws if
   used outside its provider.
 
-See `features/auth/context/` for the reference implementation.
+See `features/auth/context/` for the reference implementation. The JWT session is stored in
+`localStorage` (`4frames.session`) so it is shared across tabs on the same origin; the `storage`
+event keeps React state in sync when another tab logs in or out.
 
 ## HTTP conventions
 
 - All requests go through `lib/http.ts`'s `apiFetch(path, init, token?)`.
 - `VITE_API_URL` (see `.env.example`) is the core-api base URL, defaults to
-  `http://localhost:3000`.
+  `http://localhost:3000`. The production image (`Dockerfile`) builds with `/api`, a path relative
+  to the host that served the front (the cluster Ingress routes `/api` to the API), so build every
+  API URL by concatenating `API_URL` + path. `new URL(API_URL)` without a base throws on `/api`.
 - Auth: pass the JWT as the third argument to `apiFetch`; it's sent as
   `Authorization: Bearer <token>`. Get the token from `useAuth().session?.accessToken`.
 - Non-2xx responses throw `ApiError` (has `.status` and a message pulled from the
@@ -88,63 +94,66 @@ See `features/auth/context/` for the reference implementation.
 
 ## Commands
 
+Node 24 (`.nvmrc`) and pnpm 10 (`packageManager`), same as core-api. Newer Node versions expose
+their own `localStorage` global that shadows jsdom's — `src/test/install-storage-polyfill.ts`
+(loaded by `src/test/setup.ts`) swaps in an in-memory `Storage` when the one in the environment
+does not work, so the suite runs on any version.
+
 ```bash
 pnpm dev       # start dev server
 pnpm test      # run vitest once
+pnpm test:coverage   # vitest with coverage; fails below the thresholds in vite.config.ts (the CI gate)
 pnpm lint      # eslint
+pnpm format    # prettier for the whole repo (format:check to verify)
 pnpm exec tsc -b   # type-check
 pnpm build     # type-check + production build
+docker build -t 4frames-web .   # production image: nginx without root on port 8080 (see README)
 ```
 
-Run `pnpm exec tsc -b`, `pnpm lint`, and `pnpm test` before considering any change done.
+Run `pnpm exec tsc -b`, `pnpm lint`, `pnpm format:check`, and `pnpm test:coverage` before considering any change done:
+it is what CI runs (`.github/workflows/ci.yml`). Raise `test.coverage.thresholds` when coverage grows; never lower them
+to get a PR through.
+
+Formatting follows `.prettierrc.json` (single quotes, semicolons, no trailing commas, 120 columns).
+A Husky `pre-commit` hook runs lint-staged on staged files: `prettier --write` then `eslint --fix`
+for `*.ts`/`*.tsx`/`*.js`, and `prettier --write` for css/html/md/json/yml (config in `package.json`).
 
 ## Product flow
 
 This is a video-to-frames conversion app. The user flow is:
 
-1. `/login` — authenticate.
-2. `/convert` (`features/convert`) — pick/drop a video, click **Converter**. This:
-   1. calls `POST /videos` (creates the job as `UPLOAD_PENDING`, returns a
-      presigned S3 upload URL);
-   2. `PUT`s the file straight to that URL (bytes bypass the API);
-   3. calls `POST /videos/:jobId/complete` (confirms the object landed in S3,
-      advances the job to `QUEUED`);
-   4. navigates to `/jobs/:jobId` — no manual ID entry by the user.
-   All three API calls must happen in order before navigating — skipping step 3
-   is a real bug that was shipped once already (the job silently stays stuck in
-   `UPLOAD_PENDING` forever, since nothing else advances its status).
-3. `/jobs/:jobId` (`features/job-status`) — a shareable, standalone status page.
-   Polls `GET /videos/:jobId` every 3s for status
-   (`UPLOAD_PENDING`/`QUEUED`/`PROCESSING`/`DONE`/`FAILED`/`EXPIRED`), stops polling
-   once terminal, and reveals a download button that calls
-   `GET /videos/:jobId/download` when `DONE`. The URL is meant to be copy/pasted
-   and shared — the `jobId` in the path is the correlation point, not something the
-   user types in manually anywhere.
+1. `/login` — authenticate (`features/auth`).
+2. `/convert` (`features/convert`) — pick/drop **one or more** videos (up to
+   `MAX_BATCH_UPLOAD_FILES` in `convert-api.ts`), click **Converter**. For each file,
+   in parallel:
+   1. `POST /videos` (`UPLOAD_PENDING` + presigned S3 upload URL);
+   2. `PUT` to that URL (bytes bypass the API), through `XMLHttpRequest` in `uploadVideoToStorage`:
+      `fetch` cannot report how much of the body was sent, `upload.onprogress` can;
+   3. `POST /videos/:jobId/complete` → `QUEUED`.
+      All three steps must run per file — skipping `complete` leaves the job stuck in
+      `UPLOAD_PENDING`. While they run, each file has its own `<progress>` bar and state
+      (percentage sent, "Confirmando…", "Na fila" or "Falhou"). On success, navigate to `/my-videos`;
+      with a failure, only the failed files stay selected, as a plain selection, ready to retry.
+3. `/my-videos` (`features/my-videos`) — lists every conversion job for the logged-in
+   user, most recent first, via `GET /videos?limit=&offset=` (default page size 20,
+   "Carregar mais" when more items exist). Each row links to `/jobs/:jobId`.
+   Polls the same endpoint every 3s while any visible job is not terminal (`DONE`/
+   `FAILED`/`EXPIRED`). Status labels: `features/job-status/status-label.ts`.
+4. `/jobs/:jobId` (`features/job-status`) — shareable status page. Polls
+   `GET /videos/:jobId` every 3s until terminal; download via
+   `GET /videos/:jobId/download` when `DONE`. `jobId` is the API UUID (string).
+   - **Cancelar** while `UPLOAD_PENDING`/`QUEUED` → `POST /videos/:jobId/cancel`;
+     backend uses `EXPIRED` for user cancel; `wasCanceledByUser` shows "Cancelado".
+   - **SSE** while `PROCESSING`: `openVideoJobEventsStream` + `<progress>` from
+     `job.progress`; poll remains source of truth for `status`.
 
-There is no "download" feature folder — download lives inside `job-status` because
-it's gated by that job's status, not a standalone destination.
-
-**Live progress (planned, not yet implemented)**: ADR-001 specifies
-`GET /videos/{jobId}/events` as an SSE stream (fed by Redis Pub/Sub from the
-worker) for live progress updates, not WebSocket — the flow is server→client only,
-and SSE composes with the stateless multi-replica API without sticky sessions.
-`JobStatusPage` currently only polls `GET /videos/:jobId` every 3s, which is
-correct as-is (and remains the fallback) but doesn't show incremental progress
-within `PROCESSING`. Don't add an `EventSource` client until the backend actually
-ships that endpoint (it requires the worker + SQS + Redis pieces, none of which
-exist yet) — wiring it earlier would be dead code with nothing to connect to.
+There is no separate "download" feature folder — download lives inside `job-status`.
 
 ## Known gaps
 
-- `4frames-core-api` implements `POST /auth`, `POST /videos`, `POST /videos/:jobId/complete`,
-  and `GET /videos/:jobId` (status). A confirmed job can currently reach `QUEUED`
-  and stay there — there is no worker, SQS, or ffmpeg processing yet, so no job
-  will ever reach `PROCESSING`/`DONE`/`FAILED` today. `GET /videos/:jobId/download`
-  — consumed by `features/job-status` when status is `DONE` — doesn't exist yet on
-  the API either. The frontend client assumes the contract documented in
-  `job-status-api.ts` and must be reconciled once that endpoint ships.
-- The `jobId` used in the `/jobs/:jobId` URL is today the raw sequential database
-  ID (`SERIAL`). It works but is enumerable/guessable, which is a bad property for
-  a URL meant to be shared publicly. If/when the backend exposes a non-sequential
-  identifier (UUID or short hash) for jobs, switch the route param and API calls to
-  use that instead.
+- Coverage is gated at about 75 % (`vite.config.ts`). The thin spots are the thin API wrappers (`job-status-api`,
+  `auth-api`) and `routes/` (`AppLayout`, `ProtectedRoute`).
+- Email on `job.done`/`job.failed` is sent by `apps/notifier`; the UI does not surface it.
+- `GET /videos/:jobId/events` uses `?token=` (EventSource cannot send `Authorization`);
+  `openVideoJobEventsStream` is the intentional exception to routing everything through `apiFetch`. The other one
+  is `uploadVideoToStorage`: its `PUT` goes to S3, not to the API, and uses `XMLHttpRequest` for the progress.

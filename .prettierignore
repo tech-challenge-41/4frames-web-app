@@ -1,0 +1,3 @@
+# O Prettier já ignora o que está no .gitignore (node_modules, dist).
+pnpm-lock.yaml
+coverage

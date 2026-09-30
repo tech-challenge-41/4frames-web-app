@@ -17,7 +17,11 @@
   --text: var(--color-gray-800);
   --text-muted: var(--color-gray-600);
 
-  font: 16px/150% system-ui, 'Segoe UI', Roboto, sans-serif;
+  font:
+    16px/150% system-ui,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
   color-scheme: light;
   color: var(--text);
   background: var(--bg);

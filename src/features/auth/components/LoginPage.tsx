@@ -1,14 +1,21 @@
 import { useState } from 'react';
 import type { SubmitEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { login } from '../api/auth-api';
 import { useAuth } from '../context/use-auth';
 import { ApiError } from '../../../lib/http';
+import type { LoginRedirectState } from '../context/login-redirect';
 import './login-page.css';
+
+/** Tela principal depois do login, quando ninguém pediu outra página. */
+const HOME_PATH = '/my-videos';
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { setSession } = useAuth();
+  const location = useLocation();
+  const { setSession, sessionExpired } = useAuth();
+  // Só vale o que o ProtectedRoute pôs no estado da navegação: não vem da URL, então não serve de redirecionamento aberto.
+  const from = (location.state as LoginRedirectState | null)?.from;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,7 +30,7 @@ export function LoginPage() {
     try {
       const result = await login(email, password);
       setSession(result);
-      navigate('/convert', { replace: true });
+      navigate(from && from !== '/login' ? from : HOME_PATH, { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Não foi possível conectar ao servidor.');
     } finally {
@@ -37,6 +44,12 @@ export function LoginPage() {
         <span className="logo-mark">4F</span>
         <h1>Entrar</h1>
         <p className="subtitle">Acesse com suas credenciais de funcionário</p>
+
+        {sessionExpired && !error && (
+          <p className="error" role="status">
+            Sua sessão expirou. Entre de novo para continuar.
+          </p>
+        )}
 
         <form onSubmit={handleSubmit} noValidate>
           <label htmlFor="email">Email</label>

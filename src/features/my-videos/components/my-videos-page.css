@@ -1,0 +1,137 @@
+.video-list {
+  width: 100%;
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* O botão de download fica fora do link (botão dentro de <a> não é válido): o item é que tem fundo e borda. */
+.video-list__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 10px;
+  background: var(--color-gray-50);
+  border: 1px solid var(--border);
+  transition: background 0.15s ease;
+}
+
+.video-list__item:hover {
+  background: var(--color-gray-100);
+}
+
+.video-list__link {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  text-decoration: none;
+  color: var(--text);
+  text-align: left;
+}
+
+.video-list__info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.video-list__name {
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-list__date {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.video-list__reason {
+  font-size: 12px;
+  color: var(--color-danger);
+}
+
+.video-list__progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.video-list__progress progress {
+  width: 160px;
+  height: 6px;
+  border: none;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--color-gray-200);
+}
+
+.video-list__progress progress::-webkit-progress-bar {
+  background: var(--color-gray-200);
+  border-radius: 4px;
+}
+
+.video-list__progress progress::-webkit-progress-value {
+  background: var(--color-green);
+  border-radius: 4px;
+  transition: width 0.2s ease;
+}
+
+.video-list__progress progress::-moz-progress-bar {
+  background: var(--color-green);
+  border-radius: 4px;
+}
+
+.video-list__percent {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.video-list__download {
+  flex-shrink: 0;
+  margin-right: 12px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+/* Celular: o status desce para baixo do nome, e o motivo da falha usa a largura toda em vez de uma coluna estreita. */
+@media (max-width: 560px) {
+  .video-list__link {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .video-list__info {
+    width: 100%;
+  }
+}
+
+.video-list__status {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.video-list__status--done {
+  color: var(--color-green-dark);
+}
+
+.video-list__status--failed,
+.video-list__status--expired {
+  color: var(--color-danger);
+}

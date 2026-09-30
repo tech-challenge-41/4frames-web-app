@@ -22,7 +22,125 @@
   background: var(--color-green-light);
 }
 
+.convert-file-list {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  width: 100%;
+  text-align: left;
+}
+
+.convert-file-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.convert-file-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.convert-file-remove {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+/* Envio de um arquivo: a mesma barra da listagem de "Meus vídeos", com o percentual ou o estado ao lado. */
+.convert-file-upload {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.convert-file-upload progress {
+  width: 140px;
+  height: 6px;
+  border: none;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--color-gray-200);
+}
+
+.convert-file-upload progress::-webkit-progress-bar {
+  background: var(--color-gray-200);
+  border-radius: 4px;
+}
+
+.convert-file-upload progress::-webkit-progress-value {
+  background: var(--color-green);
+  border-radius: 4px;
+  transition: width 0.2s ease;
+}
+
+.convert-file-upload progress::-moz-progress-bar {
+  background: var(--color-green);
+  border-radius: 4px;
+}
+
+.convert-file-state {
+  min-width: 88px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.convert-file-upload--queued .convert-file-state {
+  color: var(--color-green-dark);
+  font-weight: 600;
+}
+
+.convert-file-upload--failed .convert-file-state {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+/* Celular: a barra desce para baixo do nome e usa a largura toda. */
+@media (max-width: 560px) {
+  .convert-file-list li.convert-file--uploading {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .convert-file-upload progress {
+    flex: 1;
+    width: auto;
+  }
+}
+
 .card--wide .btn-primary {
   margin-top: 20px;
   width: 100%;
+}
+
+.convert-failure-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  width: 100%;
+  text-align: left;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.convert-failure-list li {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.convert-failure-list li:last-child {
+  border-bottom: none;
+}
+
+.convert-failure-list strong {
+  color: var(--text);
 }

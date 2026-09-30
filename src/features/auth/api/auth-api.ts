@@ -10,7 +10,7 @@ export interface AuthenticatedUserSession {
 }
 
 export async function login(email: string, password: string): Promise<AuthenticatedUserSession> {
-  const response = await apiFetch('/auth', {
+  const response = await apiFetch('/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password })
